@@ -8,10 +8,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut sum: u32 = 0;
 
-    // NOTE: only 12 red cubes, 13 green cubes, and 14 blue cubes
-
     input.iter().for_each(|line| {
         let splitted: Vec<&str> = line.split(':').collect();
+
+        let mut red = 0; let mut green = 0; let mut blue = 0;
 
         for raw_sets in splitted.get(1).unwrap().split(';') {
             for raw_hand in raw_sets.trim().split(", ") {
@@ -19,18 +19,16 @@ fn main() -> Result<(), Box<dyn Error>> {
                 let count = raw_pair
                     .next().unwrap()
                     .parse::<u32>().unwrap();
-                let max = match raw_pair.next().unwrap() {
-                    "red" => 12, "green" => 13, "blue" => 14,  _ => 0,
+                match raw_pair.next().unwrap() {
+                    "red" => if count > red { red = count; },
+                    "green" => if count > green { green = count; },
+                    "blue" => if count > blue { blue = count; },
+                    _ => (),
                 };
-                if count > max { return; }
             }
         }
 
-        let game = splitted
-            .first().unwrap()
-            .split(' ').nth(1).unwrap()
-            .parse::<u32>().unwrap();
-        sum += game;
+        sum += red * green * blue;
     });
 
     println!("{sum}");

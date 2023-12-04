@@ -5,4 +5,5 @@ I used this to improve my knowledge in Rust.
 ## Completed Days
 
 - [x] day 01
+- [x] day 02
 
