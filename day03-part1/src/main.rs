@@ -1,32 +1,79 @@
-use std::{fs, error::Error, primitive};
+use std::{fs, error::Error};
+
+fn is_adjacent(s: &[u8], i: usize) -> bool {
+    !s[i].is_ascii_digit() && s[i] != b'.'
+}
 
 // expects the full line in each slice and global positions.
 fn is_part_number_up(
-    line_above: &str, line: &str,
-    global_start: usize, global_end: usize,
+    la: &[u8], cl: &[u8],
+    gs: usize, ge: usize,
 ) -> bool {
-    todo!()
+    let s = if gs > 0 {
+        let _s = gs-1;
+        if is_adjacent(cl, _s) {
+            return true;
+        }
+        _s
+    } else { 0 };
+
+    let last = cl.len()-1;
+    let e = (ge+1).min(last);
+    if e < last && is_adjacent(cl, last) {
+        return true;
+    }
+
+    (s..=e).any(|i| is_adjacent(la, i))
 }
 
 // expects the full line in each slice and global positions.
 fn is_part_number_middle(
-    line_above: &str, line: &str, line_below: &str,
-    global_start: usize, global_end: usize,
+    la: &[u8], cl: &[u8], lb: &[u8],
+    gs: usize, ge: usize,
 ) -> bool {
-    todo!()
+    let s = if gs > 0 {
+        let _s = gs-1;
+        if is_adjacent(cl, _s) {
+            return true;
+        }
+        _s
+    } else { 0 };
+
+    let last = cl.len()-1;
+    let e = (ge+1).min(last);
+    if e < last && is_adjacent(cl, e) {
+        return true;
+    }
+
+    (s..=e).any(|i| is_adjacent(la, i) || is_adjacent(lb, i))
 }
 
 // expects the full line in each slice and global positions.
 fn is_part_number_down(
-    line_below: &str, line: &str,
-    global_start: usize, global_end: usize,
+    cl: &[u8], lb: &[u8],
+    gs: usize, ge: usize,
 ) -> bool {
-    todo!()
-    // if global_start > 0 && line.get(global_start - 1).unwrap() != '.' { return true; }
+    let s = if gs > 0 {
+        let _s = gs-1;
+        if is_adjacent(cl, _s) {
+            return true;
+        }
+        _s
+    } else { 0 };
+
+    let last = cl.len()-1;
+    let e = (ge+1).min(last);
+    if e < last && is_adjacent(cl, last) {
+        return true;
+    }
+
+    (s..=e).any(|i| is_adjacent(lb, i))
 }
 
 // returned positions are relative to the given line_slice.
 // The given slice might be a substring of line.
+//
+// NOTE: assumes that slice isn't empty.
 fn search_first_number(slice: &[u8]) -> (bool, usize, usize) {
     if slice.is_empty() { return (false, 0, 0); }
 
@@ -51,6 +98,12 @@ fn search_first_number(slice: &[u8]) -> (bool, usize, usize) {
     (true, relative_start, relative_end)
 }
 
+fn convert(s: &[u8]) -> u32 {
+    let mut n = 0;
+    s.iter().for_each(|&d| n = (n * 10) + ((d - b'0') as u32));
+    n
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let file = fs::read_to_string("input.txt")?;
     let input: Vec<&[u8]> = file
@@ -60,13 +113,58 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut sum: u32 = 0;
 
-    // TODO: check first line.
+    // WARN: assumes that there's at least 3 lines.
 
-    for i in 1..input.len()-1 {
-        // TODO: check inner lines.
+    let curr = *input.get(0).unwrap();
+    let down = *input.get(1).unwrap();
+    let mut last_end = 0;
+    loop {
+        let (more, s, e) = search_first_number(&curr[last_end..]);
+        if !more { break; }
+        let gs = s + last_end;
+        let mut ge = e + last_end;
+        if is_part_number_down(curr, down, gs, ge) {
+            sum += convert(&curr[gs..=ge]);
+        }
+        ge += 2;
+        if ge >= curr.len() { break; }
+        last_end = ge;
     }
 
-    // TODO: check last line.
+    for i in 1..input.len()-1 {
+        let up = *input.get(i-1).unwrap();
+        let curr = *input.get(i).unwrap();
+        let down = *input.get(i+1).unwrap();
+        let mut last_end = 0;
+        loop {
+            let (more, s, e) = search_first_number(&curr[last_end..]);
+            if !more { break; }
+            let gs = s + last_end;
+            let mut ge = e + last_end;
+            if is_part_number_middle(up, curr, down, gs, ge) {
+                sum += convert(&curr[gs..=ge]);
+            }
+            ge += 2;
+            if ge >= curr.len() { break; }
+            last_end = ge;
+        }
+    }
+
+    let up = *input.get(input.len() - 2).unwrap();
+    let curr = *input.last().unwrap();
+    let mut last_end = 0;
+    loop {
+        let (more, s, e) = search_first_number(&curr[last_end..]);
+        if !more { break; }
+        let gs = s + last_end;
+        let mut ge = e + last_end;
+        if is_part_number_up(up, curr, gs, ge) {
+            sum += convert(&curr[gs..=ge]);
+        }
+        ge += 2;
+        if ge >= curr.len() { break; }
+        last_end = ge;
+    }
 
     println!("{sum}");
 
@@ -140,5 +238,50 @@ mod test {
         assert!(found);
         assert_eq!(start, 4);
         assert_eq!(end, 6);
+    }
+
+    #[test]
+    fn test_is_part_number_middle() {
+        let sa = ".......".as_bytes();
+        let sm = "..123..".as_bytes();
+        let sb = ".......".as_bytes();
+
+        assert!(!is_part_number_middle(sa, sm, sb, 2, 4), "normal");
+
+        let sa = ".......".as_bytes();
+        let sm = ".#123..".as_bytes();
+        let sb = ".......".as_bytes();
+
+        assert!(is_part_number_middle(sa, sm, sb, 2, 4), "left symbol in the same line");
+
+        let sa = ".......".as_bytes();
+        let sm = "..123&.".as_bytes();
+        let sb = ".......".as_bytes();
+
+        assert!(is_part_number_middle(sa, sm, sb, 2, 4), "right symbol in the line");
+
+        let sa = ".$.....".as_bytes();
+        let sm = "..123..".as_bytes();
+        let sb = ".......".as_bytes();
+
+        assert!(is_part_number_middle(sa, sm, sb, 2, 4), "left diagonal in line above");
+
+        let sa = ".......".as_bytes();
+        let sm = "..123..".as_bytes();
+        let sb = ".....%.".as_bytes();
+
+        assert!(is_part_number_middle(sa, sm, sb, 2, 4), "right diagonal in line bellow");
+
+        let sa = ".......".as_bytes();
+        let sm = "123....".as_bytes();
+        let sb = ".......".as_bytes();
+
+        assert!(!is_part_number_middle(sa, sm, sb, 0, 2), "normal at the beginning of the line");
+
+        let sa = ".......".as_bytes();
+        let sm = "....123".as_bytes();
+        let sb = ".......".as_bytes();
+
+        assert!(!is_part_number_middle(sa, sm, sb, 0, 2), "normal in the end of the line");
     }
 }
